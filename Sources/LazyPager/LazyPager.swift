@@ -73,7 +73,7 @@ public struct Config<Element> {
     /// The spacing between pages. Defaults to 0.
     public var pageSpacing: CGFloat = 0
 
-    /// Advanced settings (only accessibleevia .settings)
+    /// Advanced settings (only accessible via .settings)
     
     /// How may out of view pages to load in advance (forward and backwards)
     public var preloadAmount: Int = 3
