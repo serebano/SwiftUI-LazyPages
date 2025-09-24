@@ -170,7 +170,7 @@ SwiftUI-LazyPages is a drop-in replacement. Simply change your import:
 
 ```swift
 // Before
-import SwiftUILazyPager
+import LazyPager
 
 // After  
 import LazyPages
