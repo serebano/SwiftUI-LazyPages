@@ -33,7 +33,16 @@ public enum ZoomConfig {
     case custom(min: CGFloat, max: CGFloat, doubleTap: DoubleTap)
 }
 
+// Add this struct to Config in LazyPager.swift
+public struct PendingNavigation {
+    let page: Int
+    let animated: Bool
+}
+
 public struct Config<Element> {
+    
+    internal var pendingNavigation: PendingNavigation? = nil
+    
     /// binding variable to control a custom background opacity. LazyPager is transparent by default
     public var backgroundOpacity: Binding<CGFloat>?
     
@@ -125,6 +134,27 @@ public struct LazyPager<Element, DataCollecton: RandomAccessCollection, Content:
         self.providedPage = page
         self.viewLoader = content
         self.config.direction = direction
+    }
+}
+
+public extension LazyPager {
+    
+    /// Navigate directly to a specific page without loading intermediate pages
+    func goToPage(_ pageIndex: Int, animated: Bool = false) -> LazyPager {
+        var this = self
+        // Store navigation request in config to be processed in updateUIViewController
+        this.config.pendingNavigation = PendingNavigation(page: pageIndex, animated: animated)
+        return this
+    }
+    
+    /// Navigate to first page
+    func goToFirstPage(animated: Bool = false) -> LazyPager {
+        return goToPage(0, animated: animated)
+    }
+    
+    /// Navigate to last page based on data count
+    func goToLastPage(animated: Bool = false) -> LazyPager {
+        return goToPage(max(0, data.count - 1), animated: animated)
     }
 }
 
@@ -227,16 +257,28 @@ extension LazyPager: UIViewControllerRepresentable {
     public func updateUIViewController(_ uiViewController: ViewDataProvider<Content, DataCollecton, Element>, context: Context) {
         uiViewController.viewLoader = viewLoader
         uiViewController.data = data
-        defer { uiViewController.reloadViews() }
-        if page.wrappedValue != uiViewController.pagerView.currentIndex {
-            // Index was explicitly updated
-            uiViewController.goToPage(page.wrappedValue, animated: context.transaction.animation != nil)
-        }
+        uiViewController.config = config // Update config
         
-        if page.wrappedValue >= data.count {
-            uiViewController.goToPage(data.count - 1, animated: false)
-        } else if page.wrappedValue < 0 {
-            uiViewController.goToPage(0, animated: false)
+        // Handle pending navigation first
+        if let navigation = config.pendingNavigation {
+            uiViewController.goToPage(navigation.page, animated: navigation.animated)
+            // Clear the pending navigation by updating the config
+            var clearedConfig = config
+            clearedConfig.pendingNavigation = nil
+            uiViewController.config = clearedConfig
+        } else {
+            defer { uiViewController.reloadViews() }
+            if page.wrappedValue != uiViewController.pagerView.currentIndex {
+                // Index was explicitly updated
+                uiViewController.goToPage(page.wrappedValue, animated: context.transaction.animation != nil)
+            }
+            
+            if page.wrappedValue >= data.count {
+                uiViewController.goToPage(data.count - 1, animated: false)
+            } else if page.wrappedValue < 0 {
+                uiViewController.goToPage(0, animated: false)
+            }
         }
     }
 }
+

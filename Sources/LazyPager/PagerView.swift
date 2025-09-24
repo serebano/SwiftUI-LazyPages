@@ -9,6 +9,9 @@ import Foundation
 import UIKit
 import SwiftUI
 
+
+
+
 protocol ViewLoader: AnyObject {
     
     associatedtype Element
@@ -33,6 +36,9 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
     
     var isRotating = false
     var page: Binding<Int>
+    
+    // Add flag to prevent scroll delegate updates during programmatic navigation
+    private var isProgrammaticNavigation = false
     
     var currentIndex: Int = 0 {
         didSet {
@@ -367,21 +373,71 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
     }
     
     func goToPage(_ page: Int, animated: Bool) {
-        currentIndex = page
-        DispatchQueue.main.async {
-            self.computeViewState(immediate: true)
-            self.ensureCurrentPage(animated: animated)
+        guard page >= 0, let viewLoader = viewLoader, page < viewLoader.dataCount else { return }
+        
+        let oldCurrentIndex = currentIndex
+        
+        // For large jumps (more than preloadAmount), do a complete reset
+        let jumpDistance = abs(page - oldCurrentIndex)
+        if jumpDistance > config.preloadAmount {
+            // Complete reset approach
+            isProgrammaticNavigation = true
+            delegate = nil
+            
+            // Clear everything
+            for view in loadedViews {
+                view.removeFromSuperview()
+            }
+            loadedViews.removeAll()
+            
+            // Set the new index BEFORE rebuilding
+            currentIndex = page
+            
+            // Force immediate rebuild around target page
+            computeViewState(immediate: true)
+            
+            // Ensure we're positioned correctly
+            DispatchQueue.main.async {
+                self.ensureCurrentPage(animated: false)
+                
+                // Re-enable delegate after everything is settled
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.isProgrammaticNavigation = false
+                    self.delegate = self
+                }
+            }
+        } else {
+            // Small jump - use simpler approach
+            currentIndex = page
+            DispatchQueue.main.async {
+                self.computeViewState(immediate: true)
+                self.ensureCurrentPage(animated: animated)
+            }
         }
     }
     
     func ensureCurrentPage(animated: Bool) {
         guard let index = loadedViews.firstIndex(where: { $0.index == currentIndex }) else { return }
+        
+        let targetOffset: CGPoint
         if config.direction == .horizontal {
-            setContentOffset(CGPoint(x: CGFloat(index) * pageWidth, y: contentOffset.y), animated: animated)
+            targetOffset = CGPoint(x: CGFloat(index) * pageWidth, y: contentOffset.y)
         } else {
-            setContentOffset(CGPoint(x: contentOffset.x, y: CGFloat(index) * pageHeight), animated: animated)
+            targetOffset = CGPoint(x: contentOffset.x, y: CGFloat(index) * pageHeight)
         }
-        self.currentView.dismissEnabled = true
+        
+        // For programmatic navigation, ensure exact positioning
+        if isProgrammaticNavigation {
+            contentOffset = targetOffset
+            // Force layout to prevent settling issues
+            layoutIfNeeded()
+        } else {
+            setContentOffset(targetOffset, animated: animated)
+        }
+        
+        if !loadedViews.isEmpty {
+            currentView.dismissEnabled = true
+        }
     }
     
     func loadMoreIfNeeded() {
@@ -399,7 +455,8 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
     func scrollingFinished() {
         let newIndex = currentView.index
         
-        if currentIndex != newIndex {
+        // Only update if not during programmatic navigation
+        if !isProgrammaticNavigation && currentIndex != newIndex {
             currentIndex = newIndex
             page.wrappedValue = newIndex
         }
@@ -423,7 +480,8 @@ class PagerView<Element, Loader: ViewLoader, Content: View>: UIScrollView, UIScr
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         
-        if !scrollView.isTracking, !isRotating, (currentView.index != page.wrappedValue || page.wrappedValue != currentIndex ) {
+        // Skip updates during programmatic navigation to prevent interference
+        if !isProgrammaticNavigation && !scrollView.isTracking && !isRotating && (currentView.index != page.wrappedValue || page.wrappedValue != currentIndex ) {
             currentIndex = currentView.index
             page.wrappedValue = currentIndex
         }
