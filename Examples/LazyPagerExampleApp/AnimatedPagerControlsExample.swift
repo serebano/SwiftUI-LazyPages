@@ -1,5 +1,5 @@
 import SwiftUI
-import LazyPager
+import LazyPages
 
 
 struct AnimatedPagerControlsExample: View {

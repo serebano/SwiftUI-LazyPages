@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import LazyPager
+import LazyPages
 
 struct SubView: View {
     

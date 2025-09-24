@@ -29,7 +29,7 @@ Or add it through Xcode: File → Add Package Dependencies → `https://github.c
 
 ```swift
 import SwiftUI
-import LazyPager
+import LazyPages
 
 struct ContentView: View {
     @State private var currentPage = 0
@@ -173,7 +173,7 @@ SwiftUI-LazyPages is a drop-in replacement. Simply change your import:
 import SwiftUILazyPager
 
 // After  
-import LazyPager
+import LazyPages
 ```
 
 All existing APIs remain the same, with added performance benefits automatically applied.

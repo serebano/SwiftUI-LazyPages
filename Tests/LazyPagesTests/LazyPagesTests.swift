@@ -1,11 +1,11 @@
 import XCTest
-@testable import LazyPager
+@testable import LazyPages
 
-final class LazyPagerTests: XCTestCase {
+final class LazyPagesTests: XCTestCase {
     func testExample() throws {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-//        XCTAssertEqual(LazyPager().text, "Hello, World!")
+//        XCTAssertEqual(LazyPages().text, "Hello, World!")
     }
 }
